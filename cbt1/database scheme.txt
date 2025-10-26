@@ -1,0 +1,80 @@
+Table  
+1.	options
+2.	questions
+3.	results
+4.	student_answers
+5.	tests
+6.	test_questions
+7.	users
+
+1.	options
+1	option_id  		int(11)	
+2	question_id  	int(11)	
+3	option_key		varchar(1)	e.g., A, B, C, D
+4	option_text		text	
+5	is_correct		tinyint(1)	1 for correct, 0 for incorrect
+6	created_at		timestamp	
+
+2.	questions
+	1	question_id  	int(11)			
+ 	2	test_id  		int(11)			
+	3	question_text	text	
+ 	4	option_a		text	
+ 	5	option_b		text	
+ 	6	option_c		text	
+ 	7	option_d		text	
+ 	8	correct_option	char(1)	utf8mb4_general_ci		
+
+
+3.	results
+ 	1	result_id  		int(11)			
+ 	2	user_id  		int(11)			
+ 	3	attempt_number	int(11)			
+ 	4	test_id  		int(11)			
+ 	5	total_questions	int(11)			
+ 	6	correct_answers	int(11)			
+ 	7	wrong_answers	int(11)			
+ 	8	unanswered		int(11)			
+ 	9	start_time		datetime			
+ 	10	end_time		datetime			
+ 	11	score			int(5)			
+ 	12	submission_time	datetime			
+ 	13	is_submitted	tinyint(1)			
+ 	14	secure_answer_map	longtext	utf8mb4_bin		
+				
+
+4.	student_answers
+ 	1	answer_id  	int(11)	
+ 	2	result_id  	int(11)	
+ 	3	question_id  	int(11)	
+ 	4	selected_option	enum('A', 'B', 'C', 'D')	
+
+
+5.	tests
+	1	test_id  	int(11)			
+	2	created_by  	int(11)			
+ 	3	title	varchar(255)	utf8mb4_general_ci		
+ 	4	class_year	varchar(10)	utf8mb4_general_ci							
+ 	5	duration_minutes	int(5)								
+ 	6	creation_date	timestamp								
+ 	7	is_active	tinyint(1)								
+ 	8	total_questions	int(11)								
+ 	9	max_attempts	int(11)								
+ 	10	last_modified	datetime								
+
+6.	test_questions
+ 	1	test_id  	int(11)			
+ 	2	question_id   	int(11)							
+
+7.	users
+	1	user_id  	int(11)			
+ 	2	username  	varchar(100)						
+ 	3	password	varchar(255)	
+ 	4	user_type	enum('student', 'teacher', 'admin')						
+ 	5	full_name	varchar(150)						
+ 	6	class_year	varchar(10)						
+ 	7	reg_date	timestamp								
+ 	8	email	varchar(200)	utf8mb4_general_ci		No	None			  Change
+  Drop
+					
+
