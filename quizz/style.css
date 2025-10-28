@@ -1,0 +1,53 @@
+/* style.css */
+
+/* --- Custom Colors and Fonts --- */
+:root {
+    --primary-color: #007bff; /* Bootstrap blue */
+    --success-color: #28a745; /* Bootstrap green */
+    --font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+    font-family: var(--font-family);
+    /* Background gradient for a modern feel */
+    background: linear-gradient(135deg, #f0f2f5 0%, #e0e6ed 100%);
+}
+
+/* --- Card Animation (Attractive/Animative) --- */
+.card {
+    border: none;
+    border-radius: 15px;
+    transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+}
+
+.card:hover {
+    transform: translateY(-5px); /* Lift effect on hover */
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* --- Button Styling --- */
+.btn-lg {
+    padding: 12px 25px;
+    border-radius: 8px;
+    font-weight: 600;
+}
+
+/* Animative button feedback on click */
+.btn {
+    transition: all 0.2s ease;
+}
+
+.btn:active {
+    transform: scale(0.98);
+}
+
+/* --- Navigation Header (For use on all subsequent pages) --- */
+.navbar {
+    box-shadow: 0 2px 4px rgba(0,0,0,.05);
+}
+
+/* --- Focus State for Robustness --- */
+input:focus, textarea:focus, select:focus {
+    border-color: var(--primary-color) !important;
+    box-shadow: 0 0 0 0.25rem rgba(0, 123, 255, 0.25) !important;
+}

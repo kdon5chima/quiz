@@ -205,7 +205,7 @@ $pdo = null;
         <nav class="navbar navbar-expand-lg navbar-dark container">
             <a class="navbar-brand" href="#">
                 <img src="logo.png" alt="CBT System Logo" height="80" class="me-2"> 
-                Unique Heights Junior and Senior High School <span style="font-weight: 300;"> </span>
+                Unique Heights Junior and Senior High School <span style="font-weight: 300;"></span>
             </a>
             
             <div class="ms-auto">
@@ -234,7 +234,6 @@ $pdo = null;
                 </div>
                 
                 <div class="col-md-6 login-form-area">
-                    <br /><br /><br /><br /><br /><br />
                     <h2 class="text-primary mb-3">Login to CBT System</h2>
                     <p class="text-muted">Securely access your system account using your credentials.</p>
                     
@@ -258,8 +257,6 @@ $pdo = null;
                             <input type="submit" class="btn btn-primary btn-lg w-100" value="Login">
                         </div>
                     </form>
-                    <br />
-                    <a href="../index.php">Back to Welcome Page</a>
                 </div>
             </div>
         </div>

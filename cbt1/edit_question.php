@@ -4,7 +4,9 @@ session_start();
 require_once 'config.php'; 
 
 // Check if the user is an admin or teacher (Admin check is already in the original code, retaining it)
+// NOTE: We rely on require_once 'config.php' to handle the database connection ($pdo) and potential is_admin() check if present there.
 if (!isset($_SESSION["user_type"]) || $_SESSION["user_type"] !== "admin") {
+    // Assuming 'admin' is the required user type for this page
     header("location: login.php");
     exit;
 }
@@ -62,7 +64,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_question'])) {
     foreach ($option_keys as $key) {
         $repopulated_options_data[$key]['text'] = htmlspecialchars($new_options[$key]);
         $repopulated_options_data[$key]['correct'] = ($key == $new_correct_option_key) ? 1 : 0;
-        // NOTE: We don't have the original option IDs here, but the text/correctness is enough for display
     }
     // Only overwrite options_data if a form submission occurred
     $options_data = $repopulated_options_data;
@@ -80,22 +81,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_question'])) {
         // C. Database Transaction
         try {
             // Fetch current option IDs (required for UPDATE)
-            $sql_fetch_ids = "SELECT option_id, option_key FROM options WHERE question_id = :question_id";
+            $sql_fetch_ids = "SELECT option_key, option_id FROM options WHERE question_id = :question_id ORDER BY option_key";
             $stmt_fetch_ids = $pdo->prepare($sql_fetch_ids);
             $stmt_fetch_ids->bindParam(':question_id', $question_id, PDO::PARAM_INT);
             $stmt_fetch_ids->execute();
-            // Invert the array for [option_key => option_id] mapping
-            $existing_option_ids = $stmt_fetch_ids->fetchAll(PDO::FETCH_KEY_PAIR); 
-            // The original code used PDO::FETCH_KEY_PAIR which results in [column1 => column2].
-            // We want [option_key => option_id]. The original query SELECTS option_id, option_key, 
-            // so we need to ensure the key is the option_key (B, A, C, D) and the value is the ID.
             
-            // Re-fetch to ensure correct mapping: [option_key => option_id]
-            $stmt_fetch_ids->execute();
-            $existing_option_ids_map = [];
-            while($row = $stmt_fetch_ids->fetch(PDO::FETCH_ASSOC)) {
-                $existing_option_ids_map[$row['option_key']] = $row['option_id'];
-            }
+            // Create the mapping: [option_key => option_id]
+            $existing_option_ids_map = $stmt_fetch_ids->fetchAll(PDO::FETCH_KEY_PAIR);
             
             if (count($existing_option_ids_map) !== 4) {
                 // If the data is corrupted and doesn't have 4 options, throw an error
@@ -135,7 +127,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_question'])) {
             
             // Redirect after success (PRG)
             $_SESSION['success_message'] = "Question updated successfully!";
-            header("location: edit_question.php?question_id={$question_id}&test_id={$test_id}");
+            // *** CHANGE IS HERE: Redirect to the list page (add_questions.php) ***
+            header("location: add_questions.php?test_id={$test_id}");
             exit;
 
         } catch (Exception $e) {
@@ -144,7 +137,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_question'])) {
             }
             // Log the detailed error, show a safe message to the user
             error_log("Database Error on Question Update: " . $e->getMessage());
-            $error_message = "Database Error: Failed to update question. Please try again. (Details logged)";
+            $error_message = "Database Error: Failed to update question. Please try again. (Details logged: " . $e->getMessage() . ")";
             
             // NOTE: Repopulation is already handled before the try block, so no need to repeat here.
         }
@@ -155,34 +148,32 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_question'])) {
 // Step 2: Fetch Current Data (For initial load OR after failed POST attempt)
 // ------------------------------------
 
-// Only fetch if there was no POST attempt or if the POST attempt resulted in a validation error 
-// (which should still display the existing test title before the form data is overwritten).
-if (empty($test_title)) {
-    try {
-        // Fetch Test Title
-        $sql_test = "SELECT title FROM tests WHERE test_id = :test_id";
-        $stmt_test = $pdo->prepare($sql_test);
-        $stmt_test->bindParam(':test_id', $test_id, PDO::PARAM_INT);
-        $stmt_test->execute();
-        $test = $stmt_test->fetch(PDO::FETCH_ASSOC);
-        $test_title = $test ? htmlspecialchars($test['title']) : 'Unknown Test';
-        
-        // Final check to ensure test exists
-        if (!$test) {
-            $_SESSION['error_message'] = "Test ID {$test_id} not found.";
-            header("location: manage_tests.php");
-            exit;
-        }
-    } catch (PDOException $e) {
-         error_log("Error fetching test title: " . $e->getMessage());
-         $error_message = "Error fetching test details.";
+// Fetch Test Title (needed for display regardless of whether the question fetch below succeeds)
+try {
+    $sql_test = "SELECT title FROM tests WHERE test_id = :test_id";
+    $stmt_test = $pdo->prepare($sql_test);
+    $stmt_test->bindParam(':test_id', $test_id, PDO::PARAM_INT);
+    $stmt_test->execute();
+    $test = $stmt_test->fetch(PDO::FETCH_ASSOC);
+    $test_title = $test ? htmlspecialchars($test['title']) : 'Unknown Test';
+    
+    // Final check to ensure test exists
+    if (!$test) {
+        $_SESSION['error_message'] = "Test ID {$test_id} not found.";
+        header("location: manage_tests.php");
+        exit;
     }
+} catch (PDOException $e) {
+    error_log("Error fetching test title: " . $e->getMessage());
+    $error_message = "Error fetching test details.";
 }
 
 
-// Only fetch and overwrite data if there was NO general error (database error on POST or successful redirect)
-// If $error_message is set (validation error on POST), we want to keep the post data already set in Step 1.
-if (!isset($_POST['update_question']) || $error_message === '') {
+// Only fetch and overwrite data if:
+// 1. It is a GET request (initial load) OR 
+// 2. The POST failed with a database error (not a validation error), or it was a success which redirects and lands here as a GET.
+if ($_SERVER["REQUEST_METHOD"] !== "POST" || (isset($_POST['update_question']) && empty($error_message)) || (!empty($error_message) && !isset($_POST['update_question']))) {
+    
     try {
         // Fetch Question and Options
         $sql_fetch = "
@@ -244,6 +235,7 @@ unset($pdo);
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Edit Question | Admin</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
@@ -258,6 +250,7 @@ unset($pdo);
             background-color: #ffc107;
             border-color: #ffc107;
             color: #212529;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
         .btn-warning:hover {
             background-color: #e0a800;

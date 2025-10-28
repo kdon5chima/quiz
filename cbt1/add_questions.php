@@ -11,8 +11,12 @@ require_login(['admin', 'teacher']);
 
 $is_admin = is_admin(); // Store role for cleaner HTML logic
 
+// Assuming require_login or a prior login script sets $_SESSION['user_id']
+// This is critical for the authorization check below.
+$current_user_id = $_SESSION['user_id'] ?? null; 
+
 // --------------------
-// 2. Initialization and Test ID Validation
+// 2. Initialization and Test ID Validation & AUTHORIZATION CHECK
 // --------------------
 $test_id = filter_input(INPUT_GET, 'test_id', FILTER_VALIDATE_INT);
 $test_title = '';
@@ -51,12 +55,29 @@ if (!$test_id) {
     exit;
 }
 
-// Fetch Test Details and Class Information
+// Fetch Test Details, Class Information, and perform Authorization Check
 try {
-    // Fetch test title AND the associated class ID/Year.
-    $sql_test = "SELECT title, class_year FROM tests WHERE test_id = :test_id";
+    // Fetch test title, associated class, and the creator's user_id
+    $sql_test = "SELECT title, class_year, user_id AS test_creator_id FROM tests WHERE test_id = :test_id";
+    $bindings = [':test_id' => $test_id];
+
+    // CRITICAL AUTHORIZATION CHECK: If not an admin, restrict results to tests created by the current user
+    if (!$is_admin && $current_user_id) {
+        $sql_test .= " AND user_id = :user_id";
+        $bindings[':user_id'] = $current_user_id;
+    } elseif (!$is_admin && !$current_user_id) {
+        // Fallback for missing user ID session data (should be caught by require_login, but good practice)
+        $_SESSION['error_message'] = "Authentication failed. Please log in again.";
+        header("location: logout.php"); 
+        exit;
+    }
+    // END CRITICAL AUTHORIZATION CHECK
+
     $stmt_test = $pdo->prepare($sql_test);
-    $stmt_test->bindParam(':test_id', $test_id, PDO::PARAM_INT);
+    
+    foreach ($bindings as $key => $value) {
+        $stmt_test->bindValue($key, $value);
+    }
     $stmt_test->execute();
     $test = $stmt_test->fetch(PDO::FETCH_ASSOC);
 
@@ -69,15 +90,15 @@ try {
         } 
         
     } else {
-        $_SESSION['error_message'] = "Test not found.";
+        // This message now covers both "Test not found" and "Test not authorized"
+        $_SESSION['error_message'] = "Test not found or you are not authorized to edit it.";
         header("location: " . $redirect_page_on_error);
         exit;
     }
 } catch (PDOException $e) {
-    error_log("Database error fetching test details in add_questions.php: " . $e->getMessage()); 
+    error_log("Database error fetching test details in add_questions.php: " . $e->getMessage()); // <-- This is writing the error
     $_SESSION['error_message'] = "A database error occurred while fetching test details.";
-    header("location: " . $redirect_page_on_error);
-    exit;
+    // ...
 }
 
 // --------------------
@@ -189,7 +210,8 @@ $total_pages = 1;
 // *** PAGINATION LOGIC: Calculate row-based LIMIT and OFFSET ***
 // ***************************************************************
 $options_per_question = 4;
-$row_limit = $limit_per_page * $options_per_question;
+// This calculation is CORRECT for joined tables where each question generates 4 rows.
+$row_limit = $limit_per_page * $options_per_question; 
 $row_offset = 0; // Initialize
 
 try {
@@ -206,6 +228,7 @@ try {
         // CRITICAL FIX: Ensure current page is within bounds and redirect if necessary
         if ($current_page > $total_pages || $current_page < 1) {
             $new_page = max(1, $total_pages); // Go to the last existing page, or 1
+            // Use the session to store the error so the user sees it after redirect
             $_SESSION['error_message'] = "The page you requested is invalid. Redirected to page {$new_page}.";
             header("location: add_questions.php?test_id=" . $test_id . "&page=" . $new_page);
             exit;
@@ -260,7 +283,9 @@ try {
     
 } catch (PDOException $e) {
     error_log("SQL ERROR FETCHING QUESTIONS: " . $e->getMessage());
-    $error_message = "SQL ERROR FETCHING QUESTIONS: Check your table/column names. Please check logs.";
+    // Use session for the error message so it persists after a potential redirect
+    $_SESSION['error_message'] = "SQL ERROR FETCHING QUESTIONS: Check your table/column names. Please check logs.";
+    $error_message = $_SESSION['error_message']; // Update local variable for immediate display
     $total_questions = -1;
 }
 
@@ -314,6 +339,11 @@ try {
         <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-2">
             <h2>Adding Questions to: "<span class="text-primary"><?php echo $test_title; ?></span>"</h2>
             <div class="d-flex align-items-center">
+                <!-- NEW: Bulk Import Button -->
+                <a href="import_questions.php?test_id=<?php echo $test_id; ?>" class="btn btn-success mr-3">
+                    <i class="fas fa-file-import"></i> Bulk Import
+                </a>
+                <!-- END NEW -->
                 <p class="h5 mb-0 mr-4 text-muted">
                     <i class="fas fa-layer-group text-info"></i> Target Group: <span class="badge badge-info badge-lg"><?php echo $class_name; ?></span>
                 </p>
@@ -331,6 +361,14 @@ try {
                 <h5><i class="fas fa-plus-square"></i> Add New Question</h5>
             </div>
             <div class="card-body">
+                <!-- NEW: Import Call-to-action within the card -->
+                <div class="alert alert-info py-2">
+                    Prefer to add questions in bulk? 
+                    <a href="import_questions.php?test_id=<?php echo $test_id; ?>" class="alert-link font-weight-bold">
+                        Click here to use the Bulk Import Tool <i class="fas fa-upload"></i>
+                    </a>
+                </div>
+                <!-- END NEW -->
                 
                 <form action="add_questions.php?test_id=<?php echo $test_id; ?>" method="POST">
                     
